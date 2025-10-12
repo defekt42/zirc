@@ -1,4 +1,4 @@
-// zirc_plus.c — BSD-friendly hybrid server-only echo IRC client
+// zirc_plus.c — BSD-friendly client
 // Build: cc -Wall -O2 -std=c99 zirc_plus.c -lssl -lcrypto -lreadline -o zirc_plus
 
 #define _GNU_SOURCE
