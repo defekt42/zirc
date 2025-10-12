@@ -71,10 +71,10 @@ static void sendln(SSL *ssl,const char *s){
 }
 
 int main(void){
-    const char *nick=getenv("NICK")?getenv("NICK"):"slartiblarfast";
-    const char *user=getenv("USER")?getenv("USER"):"zed";
-    const char *real=getenv("REALNAME")?getenv("REALNAME"):"z client";
-    const char *chan=getenv("CHANNEL")?getenv("CHANNEL"):"##";
+    const char *nick=getenv("NICK")?getenv("NICK"):"your_nick";
+    const char *user=getenv("USER")?getenv("USER"):"name";
+    const char *real=getenv("REALNAME")?getenv("REALNAME"):"R_name";
+    const char *chan=getenv("CHANNEL")?getenv("CHANNEL"):"#channel";
     const char *pass=getenv("PASS");
     const char *srv=getenv("SERVER")?getenv("SERVER"):"irc.libera.chat";
     const char *port= getenv("PORT")?getenv("PORT"):"6697";
