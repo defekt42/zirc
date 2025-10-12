@@ -1,5 +1,6 @@
 # zirc
 BSD-friendly IRC client
+
 Usage: ./zirc irc.libera.chat 6697 nick "#channel" "password"
 
 Required Build Dependencies
