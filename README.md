@@ -26,7 +26,7 @@ Network: sys/socket.h, netdb.h (for getaddrinfo)
 Standard C/POSIX: stdio.h, stdlib.h, unistd.h, time.h, signal.h
 
 
-Your current build command:
+Build command:
 cc -Wall -O2 -std=c99 zirc_plus.c -lssl -lcrypto -lreadline -o zirc_plus
 
 Build Command Breakdown:
