@@ -1,183 +1,247 @@
-// zirc2.c minimal posix client
-// cc -std=c11 -O2 -Wall -pedantic -D_POSIX_C_SOURCE=200809L -o zirc2 zirc2.c
-// ./zirc2 nick user_name real_name irc.libera.chat 6667 "#channel" "password"
+// zirc0.c minimal posix client
+// cc -std=c11 -O2 -Wall -pedantic -D_POSIX_C_SOURCE=200809L -o zirc0 zirc0.c
+// ./zirc0 nick user_name real_name irc.libera.chat 6667 "#channel" "password"
 
-#define _POSIX_C_SOURCE 200112L
-
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 #include <sys/select.h>
-#include <time.h>
-#include <ctype.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include <netdb.h>
+#include <termios.h>
+#include <signal.h>
 
-#define BUFSZ 1024
+#define MAXLINE 512
+#define HISTORY 10
 
-static const char *irc_colors[16] = {
-    "\033[37m","\033[30m","\033[34m","\033[32m",
-    "\033[31m","\033[31;1m","\033[35m","\033[33m",
-    "\033[33;1m","\033[32;1m","\033[36m","\033[36;1m",
-    "\033[34;1m","\033[35;1m","\033[37;1m","\033[0m"
-};
+/* --- Terminal raw mode --- */
+static struct termios orig_term;
+static void restore_term(void) { tcsetattr(STDIN_FILENO, TCSANOW, &orig_term); }
+static void set_raw(void) {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &orig_term);
+    atexit(restore_term);
+    t = orig_term;
+    t.c_lflag &= ~(ICANON | ECHO);
+    t.c_cc[VMIN] = 1;
+    t.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
 
-static void irc_to_ansi(const char *in,char *out,size_t n){
-    const char *p=in; char *q=out; size_t left=n-1;
-    while(*p && left>0){
-        if(*p=='\003'){ p++; int c=(*p>='0'&&*p<='9')?(*p++-'0'):0;
-            if(*p>='0'&&*p<='9'){ c=c*10+(*p++-'0'); }
-            if(c>=0 && c<16){ size_t l=strlen(irc_colors[c]);
-                if(l<left){ memcpy(q,irc_colors[c],l); q+=l; left-=l; } }
-        } else if(*p=='\002'){ const char *seq="\033[1m"; size_t l=strlen(seq);
-            if(l<left){ memcpy(q,seq,l); q+=l; left-=l; } p++;
-        } else if(*p=='\037'){ const char *seq="\033[4m"; size_t l=strlen(seq);
-            if(l<left){ memcpy(q,seq,l); q+=l; left-=l; } p++;
-        } else if(*p=='\026'){ const char *seq="\033[7m"; size_t l=strlen(seq);
-            if(l<left){ memcpy(q,seq,l); q+=l; left-=l; } p++;
-        } else if(*p=='\017'){ const char *seq="\033[0m"; size_t l=strlen(seq);
-            if(l<left){ memcpy(q,seq,l); q+=l; left-=l; } p++;
-        } else if(*p=='\006'){ const char *seq="\033[5m"; size_t l=strlen(seq);
-            if(l<left){ memcpy(q,seq,l); q+=l; left-=l; } p++;
-        } else { *q++=*p++; left--; }
+/* --- Connect to IRC server --- */
+static int dial(const char *h,const char *p){
+    struct addrinfo hints={0},*res,*rp; int fd=-1;
+    hints.ai_socktype=SOCK_STREAM;
+    if(getaddrinfo(h,p,&hints,&res)) return -1;
+    for(rp=res;rp;rp=rp->ai_next){
+        fd=socket(rp->ai_family,rp->ai_socktype,rp->ai_protocol);
+        if(fd>=0 && connect(fd,rp->ai_addr,rp->ai_addrlen)==0) break;
+        if(fd>=0) close(fd),fd=-1;
     }
-    const char *reset="\033[0m"; size_t l=strlen(reset);
-    if(l<left){ memcpy(q,reset,l); q+=l; } *q=0;
+    freeaddrinfo(res); return fd;
 }
 
-static void print_ts(FILE *lf,const char *prefix,const char *msg){
-    char buf[BUFSZ*2]; irc_to_ansi(msg,buf,sizeof buf);
-    time_t t=time(NULL); struct tm *tm=localtime(&t);
-    char ts[32]; strftime(ts,sizeof ts,"%H:%M:%S",tm);
-    if(prefix&&*prefix) printf("[%s] %s %s\n",ts,prefix,buf);
-    else printf("[%s] %s\n",ts,buf);
-    fflush(stdout);
-    if(lf){
-        if(prefix&&*prefix) fprintf(lf,"[%s] %s %s\n",ts,prefix,msg);
-        else fprintf(lf,"[%s] %s\n",ts,msg);
-        fflush(lf);
+/* --- Print with timestamp and IRC colors --- */
+static void print_ts(FILE *f,const char *msg){
+    char ts[32],ansi[4096]; time_t t=time(NULL);
+    strftime(ts,sizeof ts,"%H:%M:%S",localtime(&t));
+    size_t j=0;
+    for(size_t i=0; msg[i] && j<sizeof ansi-10; i++){
+        unsigned char c=msg[i];
+        if(c==0x02) j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[1m");
+        else if(c==0x1F) j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[4m");
+        else if(c==0x16) j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[7m");
+        else if(c==0x06) j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[5m");
+        else if(c==0x0F) j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[0m");
+        else if(c==0x03){ int fg=-1,bg=-1;
+            if(msg[i+1]>='0'&&msg[i+1]<='9'){ fg=msg[++i]-'0';
+                if(msg[i+1]>='0'&&msg[i+1]<='9') fg=fg*10+(msg[++i]-'0'); }
+            if(msg[i+1]==','){ i++; if(msg[i+1]>='0'&&msg[i+1]<='9'){ bg=msg[++i]-'0';
+                if(msg[i+1]>='0'&&msg[i+1]<='9') bg=bg*10+(msg[++i]-'0'); }}
+            if(fg>=0&&bg>=0) j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[38;5;%dm\x1B[48;5;%dm",fg,bg);
+            else if(fg>=0)   j+=snprintf(ansi+j,sizeof ansi-j,"\x1B[38;5;%dm",fg);
+        } else ansi[j++]=c;
+    }
+    ansi[j]=0;
+    printf("[%s] %s\x1B[0m\n",ts,ansi);
+    if(f) fprintf(f,"[%s] %s\n",ts,msg);
+}
+
+/* --- Send line to IRC --- */
+static void sendln(int fd,const char *s){
+    char b[MAXLINE+3]; size_t n=strlen(s); if(n>MAXLINE) n=MAXLINE;
+    memcpy(b,s,n); b[n++]='\r'; b[n++]='\n'; send(fd,b,n,0);
+}
+
+/* --- Sanitize input --- */
+static void sanitize(char *in,size_t n){
+    for(size_t i=0;i<n;i++){
+        unsigned char c=in[i];
+        if((c>=0x20&&c<=0x7E)||c=='\t'||c==0x02||c==0x1F||c==0x16||c==0x0F||c==0x06) continue;
+        else if(c==0x03){ if(i+1<n && in[i+1]>='0' && in[i+1]<='9') i++;
+            if(i+1<n && in[i+1]>='0' && in[i+1]<='9') i++;
+            if(i+1<n && in[i+1]==',') i++;
+            if(i+1<n && in[i+1]>='0' && in[i+1]<='9') i++;
+            if(i+1<n && in[i+1]>='0' && in[i+1]<='9') i++;
+        } else in[i]='?';
     }
 }
 
-static void sendln(SSL *ssl,const char *s){
-    if(!s || !*s) return;
-    SSL_write(ssl,s,strlen(s));
-    SSL_write(ssl,"\r\n",2);
-}
-
-int main(void){
-    const char *nick=getenv("NICK")?getenv("NICK"):"your_nick";
-    const char *user=getenv("USER")?getenv("USER"):"name";
-    const char *real=getenv("REALNAME")?getenv("REALNAME"):"R_name";
-    const char *chan=getenv("CHANNEL")?getenv("CHANNEL"):"#channel";
-    const char *pass=getenv("PASS");
-    const char *srv=getenv("SERVER")?getenv("SERVER"):"irc.libera.chat";
-    const char *port= getenv("PORT")?getenv("PORT"):"6697";
+/* --- Main --- */
+int main(int ac,char **av){
+    const char *nick=getenv("NICK")?getenv("NICK"):"defekt";
+    const char *user=getenv("USER")?getenv("USER"):"zirc";
+    const char *real=getenv("REALNAME")?getenv("REALNAME"):"zero client";
+    const char *host="127.0.0.1",*port="6667";
+    const char *chan=getenv("CHANNEL")?getenv("CHANNEL"):"##";
     const char *logf=getenv("LOGFILE")?getenv("LOGFILE"):"irc.log";
-    FILE *lf=fopen(logf,"a");
+    const char *nspass=getenv("NICKSERV_PASS");
+    if(ac>1) nick=av[1]; if(ac>2) user=av[2]; if(ac>3) real=av[3];
+    if(ac>4) host=av[4]; if(ac>5) port=av[5]; if(ac>6) chan=av[6];
+    if(ac>7) nspass=av[7];
 
-    SSL_library_init(); SSL_load_error_strings();
-    const SSL_METHOD *meth=TLS_client_method();
-    SSL_CTX *ctx=SSL_CTX_new(meth);
-    if(!ctx){ ERR_print_errors_fp(stderr); exit(1); }
-    SSL *ssl=SSL_new(ctx);
+    FILE *lf=fopen(logf,"a"); if(!lf) lf=stderr;
+    set_raw();
+    int s=dial(host,port); if(s<0) return 1;
 
-    struct addrinfo hints, *res;
-    memset(&hints,0,sizeof hints);
-    hints.ai_family=AF_UNSPEC; hints.ai_socktype=SOCK_STREAM;
-    if(getaddrinfo(srv,port,&hints,&res)!=0){ perror("getaddrinfo"); exit(1); }
-    int sock=socket(res->ai_family,res->ai_socktype,res->ai_protocol);
-    if(sock<0){ perror("socket"); exit(1); }
-    if(connect(sock,res->ai_addr,res->ai_addrlen)<0){ perror("connect"); exit(1); }
-    SSL_set_fd(ssl,sock);
-    if(SSL_connect(ssl)<=0){ ERR_print_errors_fp(stderr); exit(1); }
+    char buf[MAXLINE+1],line[2048],in[MAXLINE+1];
+    char history[HISTORY][MAXLINE+1]={0};
+    int hist_pos=0,hist_len=0,reg=0; size_t off=0;
 
-    char buf[BUFSZ],msgbuf[BUFSZ*2]; fd_set r;
+    snprintf(buf,sizeof buf,"NICK %s",nick); sendln(s,buf);
+    snprintf(buf,sizeof buf,"USER %s 0 * :%s",user,real); sendln(s,buf);
 
-    // IRC registration
-    snprintf(msgbuf,sizeof msgbuf,"NICK %s",nick); sendln(ssl,msgbuf);
-    snprintf(msgbuf,sizeof msgbuf,"USER %s 0 * :%s",user,real); sendln(ssl,msgbuf);
-    if(pass){ snprintf(msgbuf,sizeof msgbuf,"PRIVMSG NickServ :IDENTIFY %s",pass); sendln(ssl,msgbuf); }
-    snprintf(msgbuf,sizeof msgbuf,"JOIN %s",chan); sendln(ssl,msgbuf);
-
+    fd_set r;
     while(1){
-        FD_ZERO(&r); FD_SET(0,&r); FD_SET(sock,&r);
-        if(select(sock+1,&r,NULL,NULL,NULL)<0) break;
+        FD_ZERO(&r); FD_SET(s,&r); FD_SET(0,&r);
+        if(select(s+1,&r,0,0,0)<0) break;
 
-        if(FD_ISSET(0,&r)){
-            if(!fgets(buf,sizeof buf,stdin)) break;
-            buf[strcspn(buf,"\n")] = 0;
-            if(!*buf) continue;
-            if(buf[0]=='/'){
-                if(!strncmp(buf,"/me ",4)){
-                    snprintf(msgbuf,sizeof msgbuf,"PRIVMSG %s :\001ACTION %s\001",chan,buf+4);
-                    sendln(ssl,msgbuf);
-                } else {
-                    snprintf(msgbuf,sizeof msgbuf,"%s",buf+1); // send raw command
-                    sendln(ssl,msgbuf);
-                }
-            } else {
-                snprintf(msgbuf,sizeof msgbuf,"PRIVMSG %s :%s",chan,buf);
-                sendln(ssl,msgbuf);
-            }
-        }
+        /* Incoming IRC messages */
+        if(FD_ISSET(s,&r)){
+            ssize_t n=recv(s,in,MAXLINE,0); if(n<=0) break;
+            for(ssize_t i=0;i<n;i++){
+                if(in[i]=='\r') continue;
+                if(in[i]=='\n'){ line[off]=0;
+                    if(!strncmp(line,"PING :",6)){
+                        snprintf(buf,sizeof buf,"PONG :%s",line+6); sendln(s,buf);
+                    } else {
+                        char sender[64]="",cmd[16]="",target[64]="",*msg=NULL;
+                        if(line[0]==':'){
+                            char *p=strchr(line,' '); if(p){
+                                size_t l=p-line-1; if(l>sizeof sender-1) l=sizeof sender-1;
+                                strncpy(sender,line+1,l); sender[l]=0;
+                                char *bang=strchr(sender,'!'); if(bang) *bang=0;
+                                sscanf(p+1,"%15s %63s",cmd,target);
+                                msg=strstr(p," :"); if(msg) msg+=2;
+                            }
+                        }
+                        if(!strcmp(cmd,"PRIVMSG") && msg){
+                            if(strcmp(sender,nick)!=0) print_ts(lf,msg);
+                        } else print_ts(lf,line);
 
-        if(FD_ISSET(sock,&r)){
-            int n=SSL_read(ssl,buf,sizeof buf-1);
-            if(n<=0) break;
-            buf[n]=0;
-            char *line=strtok(buf,"\r\n");
-            while(line){
-                if(!strncmp(line,"PING :",6)){
-                    snprintf(msgbuf,sizeof msgbuf,"PONG %s",line+5);
-                    sendln(ssl,msgbuf);
-                } else {
-                    char sender[64]="",target[64]="",cmd[32]="",*msg=NULL;
-                    if(line[0]==':'){
-                        char *sp=strchr(line,' '), *sp2;
-                        if(sp){
-                            size_t l=sp-line-1; if(l>sizeof sender-1) l=sizeof sender-1;
-                            strncpy(sender,line+1,l); sender[l]=0;
-                            char *bang=strchr(sender,'!'); if(bang) *bang=0;
-                            sp2=strchr(sp+1,' ');
-                            if(sp2){
-                                size_t lc=sp2-sp-1; if(lc>sizeof cmd-1) lc=sizeof cmd-1;
-                                strncpy(cmd,sp+1,lc); cmd[lc]=0;
-                                char *sp3=strchr(sp2+1,' ');
-                                if(sp3){
-                                    size_t lt=sp3-sp2-1; if(lt>sizeof target-1) lt=sizeof target-1;
-                                    strncpy(target,sp2+1,lt); target[lt]=0;
-                                    msg=strchr(sp3+1,':'); if(msg) msg++;
-                                }
+                        if(strstr(line," 001 ")){  /* successful registration */
+                            reg=1;
+                            sleep(5);  /* Delay before optional identify */
+                            if(nspass){
+                                snprintf(buf,sizeof buf,"PRIVMSG NickServ :IDENTIFY %s %s",nick,nspass);
+                                sendln(s,buf);
+                                sleep(5);  /* Delay before join */
+                            }
+                            if(chan){
+                                snprintf(buf,sizeof buf,"JOIN %s",chan);
+                                sendln(s,buf);
                             }
                         }
                     }
-                    char prefix[128];
-                    if(!strcmp(cmd,"PRIVMSG") && msg){
-                        if(msg[0]==1 && strncmp(msg+1,"ACTION ",7)==0){
-                            snprintf(prefix,sizeof prefix,"* %s",sender);
-                            print_ts(lf,prefix,msg+8);
-                        } else { snprintf(prefix,sizeof prefix,"%s %s:",sender,target);
-                            print_ts(lf,prefix,msg); }
-                    } else if(!strcmp(cmd,"JOIN")){ snprintf(prefix,sizeof prefix,"* %s",sender);
-                        print_ts(lf,prefix,"joined the channel");
-                    } else if(!strcmp(cmd,"PART")){ snprintf(prefix,sizeof prefix,"* %s",sender);
-                        if(msg) print_ts(lf,prefix,msg); else print_ts(lf,prefix,"left the channel");
-                    } else if(!strcmp(cmd,"QUIT")){ snprintf(prefix,sizeof prefix,"* %s",sender);
-                        if(msg) print_ts(lf,prefix,msg); else print_ts(lf,prefix,"quit");
-                    } else print_ts(lf,"",line);
+                    off=0; continue;
                 }
-                line=strtok(NULL,"\r\n");
+                if(off<sizeof line-1) line[off++]=in[i];
             }
         }
-    }
 
+        /* Outgoing user input (buffered until Enter) */
+        static char inputbuf[MAXLINE+1];
+        static size_t inputlen = 0;
+
+        if (FD_ISSET(0, &r)) {
+            unsigned char ch;
+            ssize_t n = read(0, &ch, 1);
+            if (n <= 0) break;
+
+            if (ch == 27) { // possible escape sequence
+                unsigned char seq[2];
+                if (read(0, seq, 2) == 2 && seq[0] == '[') {
+                    if (seq[1] == 'A' && hist_len > 0) { // up
+                        hist_pos = (hist_pos - 1 + hist_len) % hist_len;
+                        inputlen = strnlen(history[hist_pos], MAXLINE);
+                        strncpy(inputbuf, history[hist_pos], inputlen);
+                        inputbuf[inputlen] = 0;
+                        printf("\r> %s \033[K", inputbuf);
+                        fflush(stdout);
+                        continue;
+                    } else if (seq[1] == 'B' && hist_len > 0) { // down
+                        hist_pos = (hist_pos + 1) % hist_len;
+                        inputlen = strnlen(history[hist_pos], MAXLINE);
+                        strncpy(inputbuf, history[hist_pos], inputlen);
+                        inputbuf[inputlen] = 0;
+                        printf("\r> %s \033[K", inputbuf);
+                        fflush(stdout);
+                        continue;
+                    }
+                }
+                continue;
+            }
+
+            if (ch == 127 || ch == '\b') { // backspace
+                if (inputlen > 0) inputbuf[--inputlen] = 0;
+                printf("\r> %s \033[K", inputbuf);
+                fflush(stdout);
+                continue;
+            }
+
+            if (ch == '\n' || ch == '\r') { // enter pressed
+                inputbuf[inputlen] = 0;
+                printf("\n");
+                sanitize(inputbuf, inputlen);
+                if (inputlen && reg) {
+                    strncpy(history[hist_len % HISTORY], inputbuf, MAXLINE);
+                    history[hist_len % HISTORY][MAXLINE] = 0;
+                    hist_len++;
+                    hist_pos = hist_len % HISTORY;
+
+                    if (inputbuf[0] == '/') {
+                        memmove(inputbuf, inputbuf + 1, inputlen);
+                        if (!strncmp(inputbuf, "MSG ", 4)) {
+                            char *sp = strchr(inputbuf + 4, ' ');
+                            if (sp && sp[1]) {
+                                *sp = 0;
+                                snprintf(buf, sizeof buf, "PRIVMSG %s :%s", inputbuf + 4, sp + 1);
+                            } else continue;
+                        } else snprintf(buf, sizeof buf, "%s", inputbuf);
+                    } else snprintf(buf, sizeof buf, "PRIVMSG %s :%s", chan, inputbuf);
+                    sendln(s, buf);
+                }
+                inputlen = 0;
+                inputbuf[0] = 0;
+                printf("> ");
+                fflush(stdout);
+                continue;
+            }
+
+            if (inputlen < MAXLINE - 1 && ch >= 0x20 && ch <= 0x7E) {
+                inputbuf[inputlen++] = ch;
+                inputbuf[inputlen] = 0;
+                printf("\r> %s", inputbuf);
+                fflush(stdout);
+            }
+        }
+
+    }
     if(lf) fclose(lf);
-    SSL_shutdown(ssl); SSL_free(ssl); SSL_CTX_free(ctx); close(sock);
+    close(s);
     return 0;
 }
