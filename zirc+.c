@@ -1,5 +1,5 @@
 // zirc_plus.c — BSD-friendly client
-// Build: cc -Wall -O2 -std=c99 zirc_plus.c -lssl -lcrypto -lreadline -o zirc_plus
+// Build: cc -Wall -O2 -std=c99 zirc+.c -lssl -lcrypto -lreadline -o zirc+
 
 #define _GNU_SOURCE
 #include <stdio.h>
