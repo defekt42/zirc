@@ -40,3 +40,6 @@ Build Command Breakdown:
 4. -std=c99: Specifies the C99 standard, which is widely supported.
 
 5. -o zirc_plus: Names the resulting executable file.
+
+zirc-sec-stable build:
+cc -o zirc-sec zirc-sec.c -I/usr/local/include -L/usr/local/lib -lssl -lcrypto -levent_openssl -levent_core -levent_extra -levent -O2 -Wall -Wextra -Wpedantic -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie -Wformat -Wformat-security
