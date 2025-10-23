@@ -1359,7 +1359,7 @@ printf(ANSI_BOLD ANSI_BRIGHT_GREEN " ✓ Reconnection Resource Cleanup\n" ANSI_R
 /* Stage 1 Pledge */
 if (pledge("stdio inet dns rpath tty", NULL) == -1) {
 if (errno != ENOSYS) {
-perror("*** [SANDBOX ERROR] pledge (stage 1) failed");
+perror("*** [SANDBOX ERROR] pledge (Stage 1) failed");
 bufferevent_free(stdin_bev);
 event_base_free(base);
 if (password) {
