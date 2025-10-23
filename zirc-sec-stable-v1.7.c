@@ -1375,7 +1375,7 @@ printf(" " ANSI_BOLD "/HELP" ANSI_RESET " - Show all commands\n");
 printf(" " ANSI_BOLD "/QUIT" ANSI_RESET " - Disconnect\n");
 printf(" By default, all messages are sent to %s\n", CHANNEL);
 printf("\n");
-printf(ANSI_BOLD ANSI_LIGHT_BLUE
+printf(ANSI_BOLD ANSI_BRIGHT_YELLOW
 "═══════════════════════════════════════════════════════════\n"
 ANSI_RESET);
 printf("\n");
