@@ -559,9 +559,9 @@ last_send_time = now;
 send_count = 0;
 }
 
-if (++send_count > 5) {
+if (++send_count > 25) {
 printf(ANSI_BRIGHT_RED
-"*** RATE LIMIT EXCEEDED (5 msg/s). Command blocked: '%.40s%s'"
+"*** RATE LIMIT EXCEEDED (25 msg/s). Command blocked: '%.40s%s'"
 ANSI_RESET "\n",
 s, strlen(s) > 40 ? "..." : "");
 return;
