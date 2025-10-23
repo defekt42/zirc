@@ -4,7 +4,7 @@ BSD-friendly IRC client
 Usage: ./zirc-sec-stable-v1.7 irc.libera.chat 6697 your_nick prompt
 
 zirc-sec-stable build:
-cc -o zirc-sec zirc-sec.c -I/usr/local/include -L/usr/local/lib -lssl -lcrypto -levent_openssl -levent_core -levent_extra -levent -O2 -Wall -Wextra -Wpedantic -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie -Wformat -Wformat-security
+cc -o zirc-sec-stable-v1.7 zirc-sec-stable-v1.7.c -I/usr/local/include -L/usr/local/lib -lssl -lcrypto -levent_openssl -levent_core -levent_extra -levent -O2 -Wall -Wextra -Wpedantic -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie -Wformat -Wformat-security
 
 
 Copyright © 2025 by defekt
