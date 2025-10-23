@@ -1,45 +1,14 @@
 # zirc
 BSD-friendly IRC client
 
-Usage: ./zirc irc.libera.chat 6697 nick "#channel" "password"
-
-Required Build Dependencies
-
-pkg install readline openssl
-
-The following external libraries must be available on your system and are linked using the -l flags in your compilation command.
-
-OpenSSL / LibreSSL - Provides the necessary cryptographic functions and TLS/SSL protocol implementation (used for secure ports like 6697).
-
-On modern BSD systems (especially OpenBSD), this usually refers to LibreSSL, which is often part of the base system or easily installed via packages/ports.
--lssl -lcrypto 
-
-GNU Readline - Provides command-line editing, history management, and the crucial rl_callback_handler_install for non-blocking input.
-
--lreadline - This is a non-standard library and must be explicitly installed via the system's package or ports collection.
-
-System Libraries
-The core socket, network, and standard C functions are typically provided by the Standard C Library (libc) and other base libraries, so they do not require extra linker flags:
-
-Network: sys/socket.h, netdb.h (for getaddrinfo)
-
-Standard C/POSIX: stdio.h, stdlib.h, unistd.h, time.h, signal.h
-
-
-Build command:
-cc -Wall -O2 -std=c99 zirc_plus.c -lssl -lcrypto -lreadline -o zirc_plus
-
-Build Command Breakdown:
-
-1. cc: The C compiler.
-
-2. -lssl -lcrypto: Links the TLS/SSL functionality.
-
-3. -lreadline: Links the interactive command-line functionality.
-
-4. -std=c99: Specifies the C99 standard, which is widely supported.
-
-5. -o zirc_plus: Names the resulting executable file.
+Usage: ./zirc-sec-stable-v1.7 irc.libera.chat 6697 your_nick prompt
 
 zirc-sec-stable build:
 cc -o zirc-sec zirc-sec.c -I/usr/local/include -L/usr/local/lib -lssl -lcrypto -levent_openssl -levent_core -levent_extra -levent -O2 -Wall -Wextra -Wpedantic -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie -Wformat -Wformat-security
+
+
+Copyright © 2025 by defekt
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED “AS IS” AND DEFEKT DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL DEFEKT BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
