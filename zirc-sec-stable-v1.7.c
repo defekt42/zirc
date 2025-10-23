@@ -753,38 +753,51 @@ return;
 }
 
 /* PRIVMSG Handler */
-char *privmsg_start = strstr(line, "PRIVMSG ");
-if (privmsg_start) {
-char *prefix_line_start = strchr(line, ':');
-if (!prefix_line_start) goto print_raw;
+    char *privmsg_start = strstr(line, "PRIVMSG ");
+    if (privmsg_start) {
+        /* IRC format: :prefix PRIVMSG target :message */
+        /* Find the message colon AFTER target, not any colon IN the message */
+        
+        char *prefix_line_start = strchr(line, ':');
+        if (!prefix_line_start) goto print_raw;
 
-char *message_content = strrchr(line, ':');
-if (message_content) {
-message_content++;
-} else {
-message_content = "(No message)";
-}
+        /* Find the target (channel or nick) */
+        char *target_start = privmsg_start + 8; /* Skip "PRIVMSG " */
+        char *target_end = strchr(target_start, ' ');
+        
+        /* Message content starts after "target :" */
+        char *message_content = NULL;
+        if (target_end) {
+            /* Look for ':' after the target */
+            message_content = strchr(target_end, ':');
+            if (message_content) {
+                message_content++; /* Skip the ':' */
+            }
+        }
+        
+        if (!message_content) {
+            message_content = "(No message)";
+        }
 
-char *prefix_start = prefix_line_start + 1;
-char nickname[64];
+        char *prefix_start = prefix_line_start + 1;
+        char nickname[64];
 
-char *bang_pos = strchr(prefix_start, '!');
-size_t nick_len;
+        char *bang_pos = strchr(prefix_start, '!');
+        size_t nick_len;
 
-if (bang_pos) {
-nick_len = (size_t)(bang_pos - prefix_start);
-} else {
-char *space_pos = strchr(prefix_start, ' ');
-nick_len = space_pos ? (size_t)(space_pos - prefix_start) : strlen(prefix_start);
-}
+        if (bang_pos) {
+            nick_len = (size_t)(bang_pos - prefix_start);
+        } else {
+            char *space_pos = strchr(prefix_start, ' ');
+            nick_len = space_pos ? (size_t)(space_pos - prefix_start) : strlen(prefix_start);
+        }
 
-nick_len = nick_len < sizeof(nickname) - 1 ? nick_len : sizeof(nickname) - 1;
-strncpy(nickname, prefix_start, nick_len);
-nickname[nick_len] = '\0';
+        nick_len = nick_len < sizeof(nickname) - 1 ? nick_len : sizeof(nickname) - 1;
+        strncpy(nickname, prefix_start, nick_len);
+        nickname[nick_len] = '\0';
 
-char *target_start = privmsg_start + 8;
-char *target_end = strchr(target_start, ' ');
-char target[64];
+        /* Extract target from the position we already found */
+        char target[64];
 
 if (target_end) {
 size_t target_len = (size_t)(target_end - target_start);
@@ -949,7 +962,7 @@ sanitize(line, line_len);
 
 if (line[0] == '/') {
 if (strcmp(line, "/quit") == 0 || strcmp(line, "/QUIT") == 0) {
-sendln("QUIT :brb probably");
+sendln("QUIT :brb.. probably");
 printf("*** [IRC] Disconnecting gracefully...\n");
 
 struct timeval tv = {1, 0};
@@ -958,7 +971,7 @@ if (event_base_once(base, -1, EV_TIMEOUT, deferred_cleanup_cb, NULL, &tv) < 0) {
 fprintf(stderr, "*** [ERROR] Failed to schedule deferred cleanup timer, exiting immediately.\n");
 cleanup_and_exit_internal(1);
 } else {
-printf("*** [IRC] Cleanup scheduled in 1 second.\n");
+printf("*** [IRC] Cleaning up now.\n");
 }
 }
 else if (strcmp(line, "/help") == 0 || strcmp(line, "/HELP") == 0) {
