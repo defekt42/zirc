@@ -860,7 +860,7 @@ char *tmp = strdup(line);
 if (!tmp) {
 fprintf(stderr, "*** [ERROR] Memory allocation failed in message parser (OOM?)\n");
 /* CRITICAL FIX: Don't use goto to print_raw, just print directly and return */
-print_ts("❬❬ ", line);
+print_ts("❮❮ ", line);
 return;
 }
 
@@ -938,7 +938,7 @@ return;
 free(tmp);
 
 print_raw:
-print_ts("❬❬ ", line);
+print_ts("❮❮ ", line);
 }
 
 
@@ -1370,7 +1370,7 @@ return 1;
 }
 } else {
 printf(ANSI_BOLD ANSI_BRIGHT_GREEN
-" ✓ Initial pledge('stdio inet dns rpath') applied\n"
+" ✓ Initial Stage 1 pledge('stdio inet dns rpath') applied\n"
 ANSI_RESET);
 }
 printf("\n");
