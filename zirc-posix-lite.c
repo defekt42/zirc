@@ -3,7 +3,7 @@
  * sic -h 127.0.0.1 -p 6697 -n your-nickname
  * cc -std=c11 -O2 -Wall -pedantic -D_POSIX_C_SOURCE=200809L -o zirc zirc.c
  * Usage: ./zirc [nick] [user] [realname] [host] [port] [#channel] [nickserv_pass]
- * ./zirc slartiblarfast zirc "not important" 127.0.0.1 6697 "##" "dh00l422"
+ * ./zirc your_nick zirc "not important" 127.0.0.1 6697 "##" "password"
 */
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
