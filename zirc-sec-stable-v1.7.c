@@ -1033,7 +1033,7 @@ print_ts(echo_prefix, msg);
 }
 else {
 sendln(line + 1);
-print_ts("❭❭ ", line);
+print_ts("❯❯ ", line);
 }
 } else {
 char msg[BUFFER_SIZE];
