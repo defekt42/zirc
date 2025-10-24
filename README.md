@@ -1,5 +1,5 @@
 # zirc
-OpenBSD Hardened IRC Client that is a terminal-based and written in C with Libevent + OpenSSL/TLS, designed for security.
+OpenBSD Hardened IRC Client that is terminal-based and written in C with Libevent + OpenSSL/TLS, designed for security.
 
 Key highlights:
 	•	Secure TLS connections with certificate and hostname verification.
