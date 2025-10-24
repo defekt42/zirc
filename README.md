@@ -1,21 +1,22 @@
 # zirc
 OpenBSD Hardened IRC Client that is terminal-based and written in C with Libevent + OpenSSL/TLS, designed for security.
 
-TL;DR: Security Features of ZIRC-SEC v1.8 IRC Client
-Pledge (OpenBSD): Restricts system calls to stdio, inet, dns, rpath, tty (tightened post-connection), reducing attack surface by blocking unauthorized actions.
-Unveil (OpenBSD): Limits filesystem access to SSL certificate paths (read-only) and /dev/tty (read/write), locking down all other paths to prevent unauthorized file access.
-TLS 1.2+: Enforces strong encryption, mandatory certificate verification, and secure ciphers, preventing MITM attacks and protocol vulnerabilities.
-Memory Zeroization: Wipes passwords and sensitive data with OPENSSL_cleanse to avoid memory exposure.
-Robust Parsing: Validates IRC messages (numerics, hostmasks, CTCP) and prevents CR/LF injection.
-ANSI Escape Stripping: Blocks malicious terminal sequences, with bounds-checked color parsing (v1.7 fix).
-Rate Limiting: Caps messages at 25/sec to prevent flood-based DoS attacks.
-Error Handling: Checks all system calls, ensures resource cleanup, and uses re-entrancy guards.
-Reconnection Safety: Limits to 10 attempts with backoff, prevents race conditions (v1.7 fix).
-Buffer Protections: Includes bounds checking, NULL checks (v1.7 fix), and secure compilation flags (-fstack-protector-strong, -fPIE).
-Input Sanitization: Filters invalid characters, rejects CR/LF in passwords.
-Secure Passwords: Disables terminal echo, warns against command-line passwords, and zeroizes after use.
-Summary: ZIRC-SEC v1.8 combines pledge, unveil, TLS, and robust parsing for defense-in-depth, with fixes in v1.7 and v1.8 enhancing security. Graceful degradation on non-OpenBSD systems ensures compatibility with warnings.
+## TL;DR: ZIRC-SEC v1.8 Security
 
+- **Pledge (OpenBSD)**: Limits system calls (`stdio`, `inet`, `dns`, `rpath`, `tty`), tightening post-connection.
+- **Unveil (OpenBSD)**: Restricts filesystem to SSL certs (read) and `/dev/tty` (read/write).
+- **TLS 1.2+**: Strong encryption, certificate verification, secure ciphers.
+- **Memory Zeroization**: Wipes passwords with `OPENSSL_cleanse`.
+- **Robust Parsing**: Validates IRC messages, blocks CR/LF injection.
+- **ANSI Stripping**: Prevents malicious terminal sequences (v1.7 fix).
+- **Rate Limiting**: Caps at 25 msg/sec to avoid DoS.
+- **Error Handling**: Checks calls, cleans resources, re-entrancy guards.
+- **Reconnection**: 10 attempts max, race condition fixes (v1.7).
+- **Buffer Safety**: Bounds checking, NULL checks, secure compilation.
+- **Input Sanitization**: Filters invalid chars, rejects CR/LF in passwords.
+- **Password Security**: Echo off, command-line warnings, zeroization.
+
+**Long Winded**: Combines `pledge`, `unveil`, TLS, and parsing for robust security, with v1.7/v1.8 fixes. Degrades gracefully on non-OpenBSD systems.
 Security Features:
 The ZIRC-SEC v1.8 IRC client is designed with a strong focus on security, incorporating multiple features to protect against common vulnerabilities and ensure safe operation. Below is a detailed description of its security-focused features, based on the provided code and comments:
 1. TLS 1.2+ with Certificate Verification
@@ -56,7 +57,7 @@ The ZIRC-SEC v1.8 IRC client is designed with a strong focus on security, incorp
 13. Secure Password Handling
 •  Command-Line Warning: Alerts users to the risks of command-line password visibility in process lists, recommending the prompt option for secure input.
 •  Secure Storage and Validation: Passwords are stored in dynamically allocated memory, zeroized after use, and validated for length and content to prevent overflows or injections.
-Summary
+
 ZIRC-SEC v1.8 employs a defense-in-depth approach, integrating TLS encryption, sandboxing, memory safety, input sanitization, and robust error handling. Features like pledge(), unveil(), ANSI escape stripping, rate limiting, and secure password management address specific attack vectors. Critical fixes in v1.7 and new unveil() support in v1.8 enhance vulnerability patching and filesystem restrictions, making this client a robust choice for secure IRC communication.
 
 
