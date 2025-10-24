@@ -1,10 +1,20 @@
 # zirc
-BSD-friendly IRC client
+OpenBSD Hardened IRC Client that is a terminal-based and written in C with Libevent + OpenSSL/TLS, designed for security.
 
-Usage: ./zirc-sec-stable-v1.7 irc.libera.chat 6697 your_nick prompt
+Key highlights:
+	•	Secure TLS connections with certificate and hostname verification.
+	•	Robust error handling for network, socket, and SSL failures.
+	•	High-security sandboxing compatible with OpenBSD pledge() and unveil().
+	•	Fully interactive input via rlwrap with history, arrow keys, and Tab completion.
+	•	Persistent nickname cache for quick nickname completion across sessions.
+
+This release focuses on security, robustness, and user-friendly terminal features.
+
+
+Usage: ./zirc-sec-stable-v1.8 irc.libera.chat 6697 your_nick prompt
 
 zirc-sec-stable build:
-cc -o zirc-sec-stable-v1.7 zirc-sec-stable-v1.7.c -I/usr/local/include -L/usr/local/lib -lssl -lcrypto -levent_openssl -levent_core -levent_extra -levent -O2 -Wall -Wextra -Wpedantic -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie -Wformat -Wformat-security
+cc -o zirc-sec-stable-v1.8 zirc-sec-stable-v1.8.c -I/usr/local/include -L/usr/local/lib -lssl -lcrypto -levent_openssl -levent_core -levent_extra -levent -O2 -Wall -Wextra -Wpedantic -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE -pie -Wformat -Wformat-security
 
 
 Copyright © 2025 by defekt
