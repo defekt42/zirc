@@ -1,14 +1,48 @@
 # zirc
 OpenBSD Hardened IRC Client that is terminal-based and written in C with Libevent + OpenSSL/TLS, designed for security.
 
-Key highlights:
-	•	Secure TLS connections with certificate and hostname verification.
-	•	Robust error handling for network, socket, and SSL failures.
-	•	High-security sandboxing compatible with OpenBSD pledge() and unveil().
-	•	Fully interactive input via rlwrap with history, arrow keys, and Tab completion.
-	•	Persistent nickname cache for quick nickname completion across sessions.
-
-This release focuses on security, robustness, and user-friendly terminal features.
+Security Features of ZIRC-SEC v1.8 IRC Client
+The ZIRC-SEC v1.8 IRC client is designed with a strong focus on security, incorporating multiple features to protect against common vulnerabilities and ensure safe operation. Below is a detailed description of its security-focused features, based on the provided code and comments:
+1. TLS 1.2+ with Certificate Verification
+•  Enforced TLS 1.2 or Higher: The client uses SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) to ensure strong encryption and protect against protocol downgrade attacks.
+•  Mandatory Certificate Verification: Configured with SSL_VERIFY_PEER and hostname validation via X509_VERIFY_PARAM_set1_host, preventing man-in-the-middle (MITM) attacks. Failed verifications terminate the connection and trigger a reconnection.
+•  Secure Cipher Configuration: Excludes weak ciphers (e.g., !aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4:!SEED) and disables compression (SSL_OP_NO_COMPRESSION) and renegotiation (SSL_OP_NO_RENEGOTIATION) to mitigate TLS vulnerabilities.
+2. Sandboxing with pledge() and unveil() (OpenBSD)
+•  Pledge System Call Restriction: On OpenBSD, pledge() restricts system calls to a minimal set (stdio inet dns rpath tty initially, tightening to stdio inet rpath tty post-connection), reducing the attack surface if compromised.
+•  Unveil Filesystem Restrictions: unveil() limits filesystem access to essential paths (e.g., /etc/ssl/cert.pem, /dev/tty for password input). After configuration, unveil(NULL, NULL) locks down further access, preventing unauthorized file operations.
+•  Graceful Degradation: On non-OpenBSD systems, the client warns users if sandboxing is unavailable, ensuring transparency about reduced security.
+3. Memory Zeroization for Sensitive Data
+•  Secure Data Wiping: Passwords and sensitive data are wiped using OPENSSL_cleanse() before deallocation (e.g., in get_secure_password and cleanup_and_exit_internal), preventing exposure in memory dumps or attacks.
+•  Terminal Echo Control: Password input disables terminal echo (ECHO flag cleared via tcsetattr), ensuring passwords are not displayed during entry.
+4. Robust IRC Message Parsing
+•  Comprehensive Parsing: Handles IRC numerics, hostmasks, and CTCP with strict validation in handle_server_msg, preventing protocol-level attacks.
+•  CR/LF Injection Prevention: User input and server messages are sanitized in sendln, replacing \r and \n with spaces to block protocol manipulation.
+5. ANSI Escape Sequence Stripping
+•  Terminal Attack Prevention: Strips raw ANSI escape sequences from server output in print_ts, safely handling valid IRC color codes (e.g., \x03 for colors, \x02 for bold) while dropping unauthorized sequences (e.g., CSI, OSC) that could manipulate the terminal.
+•  Critical Fix (v1.7): Addresses ANSI escape sequence consumption to prevent bypass vulnerabilities, with bounds checking in the color code parser to avoid buffer overflows.
+6. Rate Limiting
+•  Message Rate Control: Enforces a limit of 25 messages per second in sendln, using send_count and last_send_time to mitigate flood-based denial-of-service (DoS) attacks and prevent accidental abuse.
+7. Comprehensive Error Handling
+•  Checked System Calls: All system calls are validated, with detailed error messages via ERR_error_string_n (OpenSSL) and strerror (system errors), ensuring no silent failures.
+•  Resource Cleanup: Guaranteed on all error paths, preventing resource leaks (e.g., sockets, memory, file descriptors) that could be exploited. cleanup_and_exit_internal uses re-entrancy guards to avoid double-free or race conditions.
+8. Reconnection and Resource Management
+•  Race Condition Prevention: Reconnection logic in schedule_reconnect and reconnect_cb includes protections against race conditions and resource leaks. A v1.7 fix ensures proper cleanup of reconnection guards.
+•  Controlled Reconnection: Limits to 10 attempts (MAX_RECONNECT_ATTEMPTS) with exponential backoff (up to 60 seconds), preventing infinite loops or excessive resource use.
+9. Buffer Overflow and Null Pointer Protections
+•  Bounds Checking: Enforced in string operations (e.g., snprintf, strncpy) with truncation warnings if buffers are exceeded (e.g., in write_raw_line).
+•  Critical Fixes (v1.7): Adds NULL checks after strdup to prevent crashes and includes bounds checking in the color code parser to avoid buffer overflows.
+10. Non-Blocking Cleanup
+•  Graceful Shutdown: Uses deferred_cleanup_cb with a libevent timer for non-blocking cleanup, ensuring resources are released safely without deadlocks, even under heavy load or errors.
+11. Secure Compilation Flags
+•  Hardened Binary: Compiled with -fstack-protector-strong (stack-smashing protection), -fPIE -pie (position-independent executables), and -Wformat -Wformat-security (format string vulnerability prevention), hardening against common exploits.
+12. Input Sanitization
+•  Valid Character Filtering: User input is sanitized in handle_user_input and sanitize, allowing only valid characters (ASCII >= 0x20 or specific IRC control codes), replacing invalid ones with ?.
+•  Password Validation: Rejects CR/LF in passwords, preventing injection attacks.
+13. Secure Password Handling
+•  Command-Line Warning: Alerts users to the risks of command-line password visibility in process lists, recommending the prompt option for secure input.
+•  Secure Storage and Validation: Passwords are stored in dynamically allocated memory, zeroized after use, and validated for length and content to prevent overflows or injections.
+Summary
+ZIRC-SEC v1.8 employs a defense-in-depth approach, integrating TLS encryption, sandboxing, memory safety, input sanitization, and robust error handling. Features like pledge(), unveil(), ANSI escape stripping, rate limiting, and secure password management address specific attack vectors. Critical fixes in v1.7 and new unveil() support in v1.8 enhance vulnerability patching and filesystem restrictions, making this client a robust choice for secure IRC communication.
 
 
 Usage: ./zirc-sec-stable-v1.8 irc.libera.chat 6697 your_nick prompt
