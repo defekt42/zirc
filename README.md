@@ -18,7 +18,7 @@ OpenBSD Hardened IRC Client that is terminal-based and written in C with Libeven
 
 **Long Winded**: Combines `pledge`, `unveil`, TLS, and parsing for robust security, with v1.7/v1.8 fixes. Degrades gracefully on non-OpenBSD systems.
 Security Features:
-The ZIRC-SEC v1.8 IRC client is designed with a strong focus on security, incorporating multiple features to protect against common vulnerabilities and ensure safe operation. Below is a detailed description of its security-focused features, based on the provided code and comments:
+The ZIRC-SEC v1.8 IRC client is designed with a strong focus on security, incorporating multiple features to protect against common vulnerabilities and ensure safe operation. Below is a detailed description of its security-focused features:
 1. TLS 1.2+ with Certificate Verification
 •  Enforced TLS 1.2 or Higher: The client uses SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) to ensure strong encryption and protect against protocol downgrade attacks.
 •  Mandatory Certificate Verification: Configured with SSL_VERIFY_PEER and hostname validation via X509_VERIFY_PARAM_set1_host, preventing man-in-the-middle (MITM) attacks. Failed verifications terminate the connection and trigger a reconnection.
