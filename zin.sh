@@ -22,7 +22,7 @@ watch_nicks() {
         sed 's/[<>]//g' | \
         grep -v '^$' | \
         grep -v '^[0-9]*$' | \
-        grep -Ev '^(password|Password|prompt|boat|bort|brot|aibird)$' > "$temp_file"
+        grep -Ev '^(password|Password|prompt|boat|bort|brot|aibird|snot)$' > "$temp_file"
     
     # Merge with existing nicks and sort
     if [ -f "$NICKS_FILE" ]; then
