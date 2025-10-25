@@ -103,7 +103,7 @@ static inline int unveil(const char *path, const char *permissions) {
 /* --- Constants and Global State --- */
 #define PING_INTERVAL_SEC 100
 #define BUFFER_SIZE 4096
-#define CHANNEL "#unixtalk"
+#define CHANNEL "##"
 #define IRC_MAX_MSG_LEN 512
 #define MAX_RECONNECT_DELAY 60
 #define MAX_RECONNECT_ATTEMPTS 10
@@ -148,6 +148,9 @@ static volatile sig_atomic_t cleanup_in_progress = 0;
 #define ANSI_BRIGHT_RED "\x1b[91m"
 #define ANSI_BRIGHT_GREEN "\x1b[92m"
 
+#define ANSI_BELL "\a"  /* ASCII BELL  character (0x07) */
+
+/* Then in handle_server_msg(), in the private message section (around line 821) */
 /* IRC to 256-color mapping */
 static const int irc_to_256[] = {
     15, 0, 19, 34, 196, 52, 127, 208, 226, 46, 51, 87, 75, 207, 244, 252
@@ -192,7 +195,7 @@ static int setup_unveil(void) {
                 fprintf(stderr, "*** [WARNING] unveil failed for %s: %s\n",
                         cert_paths[i], strerror(errno));
             } else {
-                fprintf(stderr, "  ✓ [UNVEIL] Allowed read access: %s\n", cert_paths[i]);
+                fprintf(stderr, "   [UNVEIL] Allowed read access: %s\n", cert_paths[i]);
                 unveiled_certs++;
             }
         }
@@ -208,7 +211,7 @@ static int setup_unveil(void) {
         fprintf(stderr, "*** [WARNING] unveil failed for /dev/tty: %s\n", 
                 strerror(errno));
     } else {
-        fprintf(stderr, "  ✓ [UNVEIL] Allowed rw access: /dev/tty\n");
+        fprintf(stderr, "   [UNVEIL] Allowed rw access: /dev/tty\n");
     }
     
     /* Lock down filesystem - no more unveil() calls allowed */
@@ -218,7 +221,7 @@ static int setup_unveil(void) {
         return -1;
     }
     
-    fprintf(stderr, "  ✓ [UNVEIL] Filesystem access locked down\n");
+    fprintf(stderr, "   [UNVEIL] Filesystem access locked down\n");
     return 0;
     
 #else
@@ -267,10 +270,10 @@ static void cleanup_and_exit_internal(int code) {
         free(password);
         password = NULL;
         password_len = 0;
-        fprintf(stderr, "*** [SECURITY] Sensitive data zeroized.\n");
+        fprintf(stderr, "***  [SECURITY] Sensitive data zeroized.\n");
     }
 
-    fprintf(stderr, "*** [CLEANUP] Shutdown complete (exit code: %d).\n", code);
+    fprintf(stderr, "***  [CLEANUP] Shutdown complete (exit code: %d).\n", code);
     exit(code);
 }
 
@@ -374,7 +377,7 @@ static void schedule_reconnect(void) {
 
     /* Clean up existing connection before scheduling reconnect */
     if (bev) {
-        fprintf(stderr, "*** [RECONNECT] Cleaning up existing connection before reconnect\n");
+        fprintf(stderr, "***  [RECONNECT] Cleaning up existing connection before reconnect\n");
         bufferevent_free(bev);
         bev = NULL;
     }
@@ -432,7 +435,7 @@ static int dial(const char *host, const char *port) {
         return -1;
     }
 
-    fprintf(stderr, "*** [CONNECT] Attempting %s:%s (attempt %d/%d)...\n",
+    fprintf(stderr, "***  [CONNECT] Attempting %s:%s (attempt %d/%d)...\n",
             host, port, reconnect_attempts_count + 1, MAX_RECONNECT_ATTEMPTS + 1);
 
     reg = 0;
@@ -471,7 +474,7 @@ static int dial(const char *host, const char *port) {
         SSL_CTX_set_default_verify_paths(ctx);
         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 
-        fprintf(stderr, "*** [SSL] Context initialized with TLS 1.2+ and strong ciphers\n");
+        fprintf(stderr, "***  [SSL] Context initialized with TLS 1.2+ and strong ciphers\n");
     }
 
     /* DNS Resolution */
@@ -485,7 +488,7 @@ static int dial(const char *host, const char *port) {
                 gai_strerror(gai_err), host, port);
         goto error;
     }
-    fprintf(stderr, "*** [DNS] Resolution successful\n");
+    fprintf(stderr, "***  [DNS] Resolution successful\n");
 
     /* Socket Creation */
     s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -500,7 +503,7 @@ static int dial(const char *host, const char *port) {
                 strerror(errno), host, port);
         goto error;
     }
-    fprintf(stderr, "*** [TCP] Connection established\n");
+    fprintf(stderr, "***  [TCP] Connection established\n");
 
     freeaddrinfo(res);
     res = NULL;
@@ -535,7 +538,7 @@ static int dial(const char *host, const char *port) {
         fprintf(stderr, "*** [SSL ERROR] Failed to set hostname for verification: %s\n", host);
         goto error;
     }
-    fprintf(stderr, "*** [SSL] Hostname verification configured for: %s\n", host);
+    fprintf(stderr, "***  [SSL] Hostname verification configured for: %s\n", host);
 
     /* Create Bufferevent */
     bev = bufferevent_openssl_socket_new(base, s, ssl,
@@ -557,7 +560,7 @@ static int dial(const char *host, const char *port) {
         goto error;
     }
 
-    fprintf(stderr, "*** [SSL] TLS handshake initiated...\n");
+    fprintf(stderr, "***  [SSL] TLS handshake initiated...\n");
     return 0;
 
 error:
@@ -896,6 +899,9 @@ static void handle_server_msg(char *line) {
                 snprintf(prefix_buf, sizeof(prefix_buf), "[PM] <UNKNOWN>: ");
             }
         } else {
+             /*  Ring bell for channel messages */
+            printf(ANSI_BELL);
+
             int written = snprintf(prefix_buf, sizeof(prefix_buf), "[%.64s] <%.64s>: ", target, nickname);
             if (written < 0 || written >= (int)sizeof(prefix_buf)) {
                 fprintf(stderr, "*** [WARNING] Prefix buffer formatting issue in message handler\n");
@@ -944,7 +950,7 @@ static void handle_server_msg(char *line) {
         /* Registration (001) */
         if (strcmp(command, "001") == 0 && !reg) {
             reg = 1;
-            printf("*** [IRC] Registered with server.\n");
+            printf("***  [IRC] Registered with server.\n");
 
             if (password) {
                 char identmsg[512];
@@ -954,14 +960,14 @@ static void handle_server_msg(char *line) {
                     fprintf(stderr, "*** [ERROR] Failed to format NickServ IDENTIFY command\n");
                 } else {
                     write_raw_line(identmsg);
-                    printf("*** [AUTH] Sent NickServ identification\n");
+                    printf("***  [AUTH] Sent NickServ identification\n");
                 }
 
                 OPENSSL_cleanse(password, password_len);
                 free(password);
                 password = NULL;
                 password_len = 0;
-                printf("*** [SECURITY] Password zeroized\n");
+                printf("***  [SECURITY] Password zeroized\n");
             }
         }
         /* Cloak confirmed (396) */
@@ -974,7 +980,7 @@ static void handle_server_msg(char *line) {
             } else {
                 sendln(joinbuf);
                 printf(ANSI_BOLD ANSI_BRIGHT_GREEN
-                       "*** Cloak confirmed. Joining default channel %s"
+                       " Cloak confirmed. Joining default channel %s"
                        ANSI_RESET "\n", CHANNEL);
             }
         }
@@ -1013,15 +1019,15 @@ static void handle_user_input(char *line) {
     if (line[0] == '/') {
         if (strcmp(line, "/quit") == 0 || strcmp(line, "/QUIT") == 0) {
             sendln("QUIT :brb.. probably");
-            printf("*** [IRC] Disconnecting gracefully...\n");
+            printf("***  [IRC] Disconnecting cleanly...\n");
 
             struct timeval tv = {1, 0};
 
             if (event_base_once(base, -1, EV_TIMEOUT, deferred_cleanup_cb, NULL, &tv) < 0) {
-                fprintf(stderr, "*** [ERROR] Failed to schedule deferred cleanup timer, exiting immediately.\n");
+                fprintf(stderr, "*** ⚑ [ERROR] Failed to schedule deferred cleanup timer, exiting immediately.\n");
                 cleanup_and_exit_internal(1);
             } else {
-                printf("*** [IRC] Cleaning up now.\n");
+                printf("***  [IRC] Cleaning up now.\n");
             }
         }
         else if (strcmp(line, "/help") == 0 || strcmp(line, "/HELP") == 0) {
@@ -1042,7 +1048,7 @@ static void handle_user_input(char *line) {
                 char privmsg[BUFFER_SIZE];
                 int written = snprintf(privmsg, sizeof(privmsg), "PRIVMSG %s :%s", target, msg);
                 if (written < 0 || written >= (int)sizeof(privmsg)) {
-                    fprintf(stderr, "*** [ERROR] Failed to format PRIVMSG command\n");
+                    fprintf(stderr, "*** ⚑ [ERROR] Failed to format PRIVMSG command\n");
                     return;
                 }
                 sendln(privmsg);
@@ -1053,7 +1059,7 @@ static void handle_user_input(char *line) {
                         "[PRIVATE MESSAGE to %.64s] " ANSI_RESET "<%s%s%s>: ",
                         target, ANSI_BRIGHT_RED, nick, ANSI_RESET);
                 if (written < 0 || written >= (int)sizeof(echo_prefix)) {
-                    fprintf(stderr, "*** [WARNING] Echo prefix formatting issue\n");
+                    fprintf(stderr, "*** ⚑ [WARNING] Echo prefix formatting issue\n");
                     snprintf(echo_prefix, sizeof(echo_prefix), "[PM] <%s>: ", nick);
                 }
                 print_ts(echo_prefix, msg);
@@ -1067,7 +1073,7 @@ static void handle_user_input(char *line) {
             int written = snprintf(privmsg, sizeof(privmsg),
                     "PRIVMSG %s :\001ACTION %s\001", CHANNEL, msg);
             if (written < 0 || written >= (int)sizeof(privmsg)) {
-                fprintf(stderr, "*** [ERROR] Failed to format ACTION command\n");
+                fprintf(stderr, "*** ⚑ [ERROR] Failed to format ACTION command\n");
                 return;
             }
             sendln(privmsg);
@@ -1076,7 +1082,7 @@ static void handle_user_input(char *line) {
             written = snprintf(echo_prefix, sizeof(echo_prefix), "[%.64s] * %s%s%s ",
                     CHANNEL, ANSI_BRIGHT_YELLOW, nick, ANSI_RESET);
             if (written < 0 || written >= (int)sizeof(echo_prefix)) {
-                fprintf(stderr, "*** [WARNING] Echo prefix formatting issue\n");
+                fprintf(stderr, "*** ⚑ [WARNING] Echo prefix formatting issue\n");
                 snprintf(echo_prefix, sizeof(echo_prefix), "[%s] * %s ", CHANNEL, nick);
             }
             print_ts(echo_prefix, msg);
@@ -1089,7 +1095,7 @@ static void handle_user_input(char *line) {
         char msg[BUFFER_SIZE];
         int written = snprintf(msg, sizeof(msg), "PRIVMSG %s :%s", CHANNEL, line);
         if (written < 0 || written >= (int)sizeof(msg)) {
-            fprintf(stderr, "*** [ERROR] Failed to format message command\n");
+            fprintf(stderr, "*** ⚑ [ERROR] Failed to format message command\n");
             return;
         }
         sendln(msg);
@@ -1098,7 +1104,7 @@ static void handle_user_input(char *line) {
         written = snprintf(echo_prefix, sizeof(echo_prefix), "[%.64s] <%s%s%s>: ",
                 CHANNEL, ANSI_BRIGHT_YELLOW, nick, ANSI_RESET);
         if (written < 0 || written >= (int)sizeof(echo_prefix)) {
-            fprintf(stderr, "*** [WARNING] Echo prefix formatting issue\n");
+            fprintf(stderr, "*** ⚑ [WARNING] Echo prefix formatting issue\n");
             snprintf(echo_prefix, sizeof(echo_prefix), "[%s] <%s>: ", CHANNEL, nick);
         }
         print_ts(echo_prefix, line);
@@ -1111,7 +1117,7 @@ static void read_cb(struct bufferevent *bev_arg, void *ctx) {
     (void)ctx;
     struct evbuffer *input = bufferevent_get_input(bev_arg);
     if (!input) {
-        fprintf(stderr, "*** [ERROR] Failed to get input buffer\n");
+        fprintf(stderr, "*** ⚑ [ERROR] Failed to get input buffer\n");
         return;
     }
 
@@ -1126,7 +1132,7 @@ static void stdin_read_cb(struct bufferevent *bev_arg, void *ctx) {
     (void)ctx;
     struct evbuffer *input = bufferevent_get_input(bev_arg);
     if (!input) {
-        fprintf(stderr, "*** [ERROR] Failed to get stdin buffer\n");
+        fprintf(stderr, "*** ⚑ [ERROR] Failed to get stdin buffer\n");
         return;
     }
 
@@ -1147,17 +1153,17 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
             long verify = SSL_get_verify_result(ssl);
             if (verify != X509_V_OK) {
                 fprintf(stderr, "\n" ANSI_BRIGHT_RED
-                        "*** [SECURITY ERROR] TLS Certificate Verification FAILED: %s"
+                        "*** ⚑ [SECURITY ERROR] TLS Certificate Verification FAILED: %s"
                         ANSI_RESET "\n", X509_verify_cert_error_string(verify));
                 bufferevent_free(bev);
                 bev = NULL;
                 schedule_reconnect();
                 return;
             }
-            fprintf(stderr, "*** [SSL] Certificate verified successfully\n");
+            fprintf(stderr, "***  [SSL] Certificate verified successfully\n");
         }
 
-        fprintf(stderr, "*** [CONNECT] Connection established and secured\n");
+        fprintf(stderr, "***  [CONNECT] Connection established and secured\n");
 
         reconnect_delay = 2;
         reconnect_attempts_count = 0;
@@ -1166,7 +1172,7 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
         int sandboxing_enabled = 0;
         if (pledge("stdio inet rpath tty", NULL) == -1) {
             if (errno != ENOSYS) {
-                perror("*** [SANDBOX ERROR] pledge (stage 2) failed");
+                perror("*** ⚑ [SANDBOX ERROR] pledge (stage 2) failed");
                 cleanup_and_exit_internal(1);
             }
         } else {
@@ -1175,7 +1181,7 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
 
         if (sandboxing_enabled) {
             printf(ANSI_BOLD ANSI_BRIGHT_GREEN
-                   "  ✓ OpenBSD Sandboxing Active (pledge: stdio inet rpath tty)\n"
+                   "   OpenBSD Sandboxing Active (pledge: stdio inet rpath tty)\n"
                    ANSI_RESET);
         } else {
             fprintf(stderr, ANSI_BOLD ANSI_BRIGHT_RED
@@ -1193,10 +1199,10 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
         struct timeval tv = {PING_INTERVAL_SEC, 0};
         ping_timer = event_new(base, -1, EV_PERSIST | EV_TIMEOUT, ping_cb, NULL);
         if (!ping_timer) {
-            fprintf(stderr, "*** [WARNING] Could not create ping timer\n");
+            fprintf(stderr, "*** ⚑ [WARNING] Could not create ping timer\n");
         } else {
             if (event_add(ping_timer, &tv) != 0) {
-                fprintf(stderr, "*** [WARNING] Failed to add ping timer to event loop\n");
+                fprintf(stderr, "*** ⚑ [WARNING] Failed to add ping timer to event loop\n");
                 event_free(ping_timer);
                 ping_timer = NULL;
             }
@@ -1206,14 +1212,14 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
         char regbuf[256];
         int written = snprintf(regbuf, sizeof(regbuf), "NICK %s", nick);
         if (written < 0 || written >= (int)sizeof(regbuf)) {
-            fprintf(stderr, "*** [ERROR] Failed to format NICK command\n");
+            fprintf(stderr, "*** ⚑ [ERROR] Failed to format NICK command\n");
         } else {
             sendln(regbuf);
         }
 
         written = snprintf(regbuf, sizeof(regbuf), "USER %s 0 * :%s", nick, nick);
         if (written < 0 || written >= (int)sizeof(regbuf)) {
-            fprintf(stderr, "*** [ERROR] Failed to format USER command\n");
+            fprintf(stderr, "*** ⚑ [ERROR] Failed to format USER command\n");
         } else {
             sendln(regbuf);
         }
@@ -1225,7 +1231,7 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
                     CONNECTION_TIMEOUT_SEC);
         } else if (events & BEV_EVENT_ERROR) {
             int err = EVUTIL_SOCKET_ERROR();
-            fprintf(stderr, "\n*** [NETWORK ERROR] %s\n", evutil_socket_error_to_string(err));
+            fprintf(stderr, "\n*** ⚑ [NETWORK ERROR] %s\n", evutil_socket_error_to_string(err));
 
             unsigned long ssl_err;
             while ((ssl_err = bufferevent_get_openssl_error(bev_arg))) {
@@ -1266,7 +1272,7 @@ int main(int argc, char **argv) {
     /* OpenSSL Initialization */
     if (!OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
                           OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL)) {
-        fprintf(stderr, "*** [FATAL] OpenSSL initialization failed\n");
+        fprintf(stderr, "*** ⚑ [FATAL] OpenSSL initialization failed\n");
         return 1;
     }
 
@@ -1277,7 +1283,7 @@ int main(int argc, char **argv) {
     const char *port = argv[2];
 
     if (strlen(argv[3]) > (sizeof(nick) - 1)) {
-        fprintf(stderr, "*** [ERROR] Nickname too long. Max length is %zu bytes.\n",
+        fprintf(stderr, "*** ⚑ [ERROR] Nickname too long. Max length is %zu bytes.\n",
                 sizeof(nick) - 1);
         return 1;
     }
@@ -1294,7 +1300,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[4], "prompt") == 0) {
             password = get_secure_password(&password_len);
             if (!password) {
-                fprintf(stderr, "*** [ERROR] Failed to read password.\n");
+                fprintf(stderr, "*** ⚑ [ERROR] Failed to read password.\n");
                 return 1;
             }
         } else {
@@ -1306,7 +1312,7 @@ int main(int argc, char **argv) {
                     "╚═══════════════════════════════════════════════════════════╝"
                     ANSI_RESET "\n");
             fprintf(stderr, ANSI_BRIGHT_RED
-                    "Password on command line is visible in process lists!\n"
+                    " Password on command line is visible in process lists!\n"
                     ANSI_RESET);
             fprintf(stderr, ANSI_BOLD "Recommended:" ANSI_RESET " Use " ANSI_BOLD
                     "'prompt'" ANSI_RESET " for secure input:\n");
@@ -1316,13 +1322,13 @@ int main(int argc, char **argv) {
             sleep(8);
 
             if (strlen(argv[4]) >= BUFFER_SIZE) {
-                fprintf(stderr, "*** [ERROR] NickServ password too long.\n");
+                fprintf(stderr, "*** ⚑ [ERROR] NickServ password too long.\n");
                 return 1;
             }
 
             password = strdup(argv[4]);
             if (!password) {
-                fprintf(stderr, "*** [ERROR] Memory allocation failed for password\n");
+                fprintf(stderr, "*** ⚑ [ERROR] Memory allocation failed for password\n");
                 return 1;
             }
             password_len = strlen(password);
@@ -1331,7 +1337,7 @@ int main(int argc, char **argv) {
         /* Password Validation */
         for (size_t i = 0; i < password_len; i++) {
             if (password[i] == '\r' || password[i] == '\n') {
-                fprintf(stderr, "*** [ERROR] Password contains invalid characters (CR/LF)\n");
+                fprintf(stderr, "*** ⚑ [ERROR] Password contains invalid characters (CR/LF)\n");
                 OPENSSL_cleanse(password, password_len);
                 free(password);
                 password = NULL;
@@ -1344,7 +1350,7 @@ int main(int argc, char **argv) {
     /* Event Base Setup */
     base = event_base_new();
     if (!base) {
-        fprintf(stderr, "*** [FATAL] Could not initialize libevent\n");
+        fprintf(stderr, "*** ⚑ [FATAL] Could not initialize libevent\n");
         if (password) {
             OPENSSL_cleanse(password, password_len);
             free(password);
@@ -1354,13 +1360,13 @@ int main(int argc, char **argv) {
 
     /* STDIN Setup */
     if (evutil_make_socket_nonblocking(STDIN_FILENO) < 0) {
-        fprintf(stderr, "*** [WARNING] Failed to make STDIN non-blocking: %s\n",
+        fprintf(stderr, "*** ⚑ [WARNING] Failed to make STDIN non-blocking: %s\n",
                 strerror(errno));
     }
 
     stdin_bev = bufferevent_socket_new(base, STDIN_FILENO, BEV_OPT_DEFER_CALLBACKS);
     if (!stdin_bev) {
-        fprintf(stderr, "*** [FATAL] Failed to set up stdin buffer event\n");
+        fprintf(stderr, "*** ⚑ [FATAL] Failed to set up stdin buffer event\n");
         event_base_free(base);
         if (password) {
             OPENSSL_cleanse(password, password_len);
@@ -1371,7 +1377,7 @@ int main(int argc, char **argv) {
 
     bufferevent_setcb(stdin_bev, stdin_read_cb, NULL, NULL, NULL);
     if (bufferevent_enable(stdin_bev, EV_READ) != 0) {
-        fprintf(stderr, "*** [FATAL] Failed to enable stdin reading\n");
+        fprintf(stderr, "*** ⚑ [FATAL] Failed to enable stdin reading\n");
         bufferevent_free(stdin_bev);
         event_base_free(base);
         if (password) {
@@ -1392,31 +1398,31 @@ int main(int argc, char **argv) {
            ANSI_RESET);
     printf("\n");
     printf(ANSI_BOLD "Security Features:\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ TLS 1.2+ with Certificate Verification\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Password/Input Zeroization\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Robust IRC Parsing (Numeric/Hostmask/CTCP)\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Protocol Injection Prevention (CR/LF)\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Terminal Security (Echo Off)\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Re-Entrancy Guards (Cleanup/Reconnect)\n"ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Message Rate Limiting (25 msg/sec)\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Comprehensive Error Handling\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Non-blocking Quit\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ ANSI Escape Stripping\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Bounds Checking in Color Parser\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ NULL Check After strdup\n" ANSI_RESET);
-    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ Reconnection Resource Cleanup\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   TLS 1.2+ with Certificate Verification\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Password/Input Zeroization\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Robust IRC Parsing (Numeric/Hostmask/CTCP)\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Protocol Injection Prevention (CR/LF)\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Terminal Security (Echo Off)\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Re-Entrancy Guards (Cleanup/Reconnect)\n"ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Message Rate Limiting (25 msg/sec)\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Comprehensive Error Handling\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Non-blocking Quit\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   ANSI Escape Stripping\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Bounds Checking in Color Parser\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   NULL Check After strdup\n" ANSI_RESET);
+    printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   Reconnection Resource Cleanup\n" ANSI_RESET);
 
     /* Stage 1 unveil() - before pledge() */
     if (setup_unveil() == -1) {
-        fprintf(stderr, "*** [WARNING] unveil() setup failed, continuing anyway\n");
+        fprintf(stderr, "*** ⚑ [WARNING] unveil() setup failed, continuing anyway\n");
     } else {
-        printf(ANSI_BOLD ANSI_BRIGHT_GREEN "  ✓ unveil() Filesystem Restrictions Applied\n" ANSI_RESET);
+        printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   unveil() Filesystem Restrictions Applied\n" ANSI_RESET);
     }
 
     /* Stage 1 Pledge */
     if (pledge("stdio inet dns rpath tty", NULL) == -1) {
         if (errno != ENOSYS) {
-            perror("*** [SANDBOX ERROR] pledge (Stage 1) failed");
+            perror("*** ⚑ [SANDBOX ERROR] pledge (Stage 1) failed");
             bufferevent_free(stdin_bev);
             event_base_free(base);
             if (password) {
@@ -1427,7 +1433,7 @@ int main(int argc, char **argv) {
         }
     } else {
         printf(ANSI_BOLD ANSI_BRIGHT_GREEN
-               "  ✓ Stage 1 pledge('stdio inet dns rpath tty') applied\n"
+               "   Stage 1 pledge('stdio inet dns rpath tty') applied\n"
                ANSI_RESET);
     }
     printf("\n");
@@ -1450,7 +1456,7 @@ int main(int argc, char **argv) {
            ANSI_RESET);
     printf("\n");
 
-    fprintf(stderr, "*** [EVENT LOOP] Starting...\n");
+    fprintf(stderr, "***  [EVENT LOOP] Starting...\n");
     int loop_result = event_base_dispatch(base);
 
     if (loop_result < 0) {
@@ -1462,7 +1468,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "*** [WARNING] Event loop exited: No events registered\n");
         cleanup_and_exit_internal(1);
     } else {
-        fprintf(stderr, "*** [EVENT LOOP] Exited cleanly\n");
+        fprintf(stderr, "***  [EVENT LOOP] Exited cleanly\n");
         cleanup_and_exit_internal(0);
     }
 
