@@ -150,7 +150,6 @@ static volatile sig_atomic_t cleanup_in_progress = 0;
 
 #define ANSI_BELL "\a"  /* ASCII BELL  character (0x07) */
 
-/* Then in handle_server_msg(), in the private message section (around line 821) */
 /* IRC to 256-color mapping */
 static const int irc_to_256[] = {
     15, 0, 19, 34, 196, 52, 127, 208, 226, 46, 51, 87, 75, 207, 244, 252
@@ -173,7 +172,6 @@ static void ping_cb(evutil_socket_t fd, short events, void *arg);
 static void reconnect_cb(evutil_socket_t fd, short events, void *arg);
 static void schedule_reconnect(void);
 static int setup_unveil(void);
-
 
 /* --- unveil() Setup --- */
 static int setup_unveil(void) {
@@ -229,7 +227,6 @@ static int setup_unveil(void) {
     return 0;
 #endif
 }
-
 
 /* --- A+ Cleanup with Full Error Handling --- */
 static void cleanup_and_exit_internal(int code) {
@@ -353,7 +350,6 @@ fail:
     return NULL;
 }
 
-
 /* --- A+ Reconnection Logic --- */
 static void reconnect_cb(evutil_socket_t fd, short events, void *arg) {
     (void)fd; (void)events; (void)arg;
@@ -422,7 +418,6 @@ static void schedule_reconnect(void) {
         }
     }
 }
-
 
 /* --- A+ TLS Connection with Full Error Context --- */
 static int dial(const char *host, const char *port) {
@@ -576,13 +571,11 @@ error:
     return -1;
 }
 
-
 /* --- Keep-Alive PING --- */
 static void ping_cb(evutil_socket_t fd, short events, void *arg) {
     (void)fd; (void)events; (void)arg;
     write_raw_line("PING :keepalive");
 }
-
 
 /* --- A+ Raw Line Sender --- */
 static void write_raw_line(const char *s) {
@@ -613,7 +606,6 @@ static void write_raw_line(const char *s) {
         fprintf(stderr, "*** [ERROR] Attempted to write but no active connection\n");
     }
 }
-
 
 /* --- A+ Sanitized Sender with Rate Limiting --- */
 static void sendln(const char *s) {
@@ -649,7 +641,6 @@ static void sendln(const char *s) {
 
     write_raw_line(clean_s);
 }
-
 
 /* --- Utility Functions --- */
 static int is_valid_char(unsigned char c) {
@@ -796,7 +787,6 @@ static void print_ts(const char *prefix, const char *msg) {
 
     printf(ANSI_RESET "\n");
 }
-
 
 /* --- A+ IRC Protocol Handler --- */
 static void handle_server_msg(char *line) {
@@ -998,7 +988,6 @@ print_raw:
     print_ts("❮❮ ", line);
 }
 
-
 /* --- A+ User Input Handler --- */
 static void handle_user_input(char *line) {
     size_t line_len = strlen(line);
@@ -1110,7 +1099,6 @@ static void handle_user_input(char *line) {
         print_ts(echo_prefix, line);
     }
 }
-
 
 /* --- Libevent Callbacks --- */
 static void read_cb(struct bufferevent *bev_arg, void *ctx) {
@@ -1257,7 +1245,6 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
     }
 }
 
-
 /* --- Main --- */
 int main(int argc, char **argv) {
     if (argc < 4) {
@@ -1392,7 +1379,7 @@ int main(int argc, char **argv) {
     printf(ANSI_BOLD ANSI_BRIGHT_YELLOW
            "═══════════════════════════════════════════════════════════\n"
            ANSI_RESET);
-    printf(ANSI_BOLD "  ZIRC-SEC v1.8 (unveil() Filesystem Hardening)  \n" ANSI_RESET);
+    printf(ANSI_BOLD "  ZIRC-IRC v1.8 (Secure Filesystem Hardening)  \n" ANSI_RESET);
     printf(ANSI_BOLD ANSI_BRIGHT_YELLOW
            "═══════════════════════════════════════════════════════════\n"
            ANSI_RESET);
