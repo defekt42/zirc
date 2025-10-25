@@ -269,10 +269,10 @@ static void cleanup_and_exit_internal(int code) {
         free(password);
         password = NULL;
         password_len = 0;
-        fprintf(stderr, "***  [SECURITY] Sensitive data zeroized.\n");
+        fprintf(stderr, "***  [SECURITY] Sensitive data zeroized.\n");
     }
 
-    fprintf(stderr, "***  [CLEANUP] Shutdown complete (exit code: %d).\n", code);
+    fprintf(stderr, "***  [CLEANUP] Shutdown complete (exit code: %d).\n", code);
     exit(code);
 }
 
@@ -432,7 +432,7 @@ static int dial(const char *host, const char *port) {
         return -1;
     }
 
-    fprintf(stderr, "***  [CONNECT] Attempting %s:%s (attempt %d/%d)...\n",
+    fprintf(stderr, "***  [CONNECT] Attempting %s:%s (attempt %d/%d)...\n",
             host, port, reconnect_attempts_count + 1, MAX_RECONNECT_ATTEMPTS + 1);
 
     reg = 0;
@@ -471,7 +471,7 @@ static int dial(const char *host, const char *port) {
         SSL_CTX_set_default_verify_paths(ctx);
         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
 
-        fprintf(stderr, "***  [SSL] Context initialized with TLS 1.2+ and strong ciphers\n");
+        fprintf(stderr, "***  [SSL] Context initialized with TLS 1.2+ and strong ciphers\n");
     }
 
     /* DNS Resolution */
@@ -485,7 +485,7 @@ static int dial(const char *host, const char *port) {
                 gai_strerror(gai_err), host, port);
         goto error;
     }
-    fprintf(stderr, "***  [DNS] Resolution successful\n");
+    fprintf(stderr, "***  [DNS] Resolution successful\n");
 
     /* Socket Creation */
     s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -500,7 +500,7 @@ static int dial(const char *host, const char *port) {
                 strerror(errno), host, port);
         goto error;
     }
-    fprintf(stderr, "***  [TCP] Connection established\n");
+    fprintf(stderr, "***  [TCP] Connection established\n");
 
     freeaddrinfo(res);
     res = NULL;
@@ -535,7 +535,7 @@ static int dial(const char *host, const char *port) {
         fprintf(stderr, "*** [SSL ERROR] Failed to set hostname for verification: %s\n", host);
         goto error;
     }
-    fprintf(stderr, "***  [SSL] Hostname verification configured for: %s\n", host);
+    fprintf(stderr, "***  [SSL] Hostname verification configured for: %s\n", host);
 
     /* Create Bufferevent */
     bev = bufferevent_openssl_socket_new(base, s, ssl,
@@ -557,7 +557,7 @@ static int dial(const char *host, const char *port) {
         goto error;
     }
 
-    fprintf(stderr, "***  [SSL] TLS handshake initiated...\n");
+    fprintf(stderr, "***  [SSL] TLS handshake initiated...\n");
     return 0;
 
 error:
@@ -942,7 +942,7 @@ static void handle_server_msg(char *line) {
         /* Registration (001) */
         if (strcmp(command, "001") == 0 && !reg) {
             reg = 1;
-            printf("***  [IRC] Registered with server.\n");
+            printf("***  [IRC] Registered with server.\n");
 
             if (password) {
                 char identmsg[512];
@@ -952,14 +952,14 @@ static void handle_server_msg(char *line) {
                     fprintf(stderr, "*** [ERROR] Failed to format NickServ IDENTIFY command\n");
                 } else {
                     write_raw_line(identmsg);
-                    printf("***  [AUTH] Sent NickServ identification\n");
+                    printf("***  [AUTH] Sent NickServ identification\n");
                 }
 
                 OPENSSL_cleanse(password, password_len);
                 free(password);
                 password = NULL;
                 password_len = 0;
-                printf("***  [SECURITY] Password zeroized\n");
+                printf("***  [SECURITY] Password zeroized\n");
             }
         }
         /* Cloak confirmed (396) */
@@ -1150,10 +1150,10 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
                 schedule_reconnect();
                 return;
             }
-            fprintf(stderr, "***  [SSL] Certificate verified successfully\n");
+            fprintf(stderr, "***  [SSL] Certificate verified successfully\n");
         }
 
-        fprintf(stderr, "***  [CONNECT] Connection established and secured\n");
+        fprintf(stderr, "***  [CONNECT] Connection established and secured\n");
 
         reconnect_delay = 2;
         reconnect_attempts_count = 0;
@@ -1445,7 +1445,7 @@ int main(int argc, char **argv) {
            ANSI_RESET);
     printf("\n");
 
-    fprintf(stderr, "***  [EVENT LOOP] Starting...\n");
+    fprintf(stderr, "***  [EVENT LOOP] Starting...\n");
     int loop_result = event_base_dispatch(base);
 
     if (loop_result < 0) {
@@ -1457,7 +1457,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "*** [WARNING] Event loop exited: No events registered\n");
         cleanup_and_exit_internal(1);
     } else {
-        fprintf(stderr, "***  [EVENT LOOP] Exited cleanly\n");
+        fprintf(stderr, "***  [EVENT LOOP] Exited cleanly\n");
         cleanup_and_exit_internal(0);
     }
 
