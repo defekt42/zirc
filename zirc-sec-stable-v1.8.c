@@ -1431,7 +1431,7 @@ int main(int argc, char **argv) {
     }
 
     printf(ANSI_BOLD "Connected as: " ANSI_BRIGHT_YELLOW "%s" ANSI_RESET "\n", nick);
-    printf(ANSI_BOLD "Default channel: " ANSI_RESET "%s\n", CHANNEL);
+    printf(ANSI_BOLD "Best channel: " ANSI_RESET "%s\n", CHANNEL);
     printf("\n");
     printf(ANSI_BOLD "Quick Start:\n" ANSI_RESET);
     printf("  " ANSI_BOLD "/HELP" ANSI_RESET " - Show all commands\n");
