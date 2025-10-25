@@ -191,7 +191,7 @@ static int setup_unveil(void) {
     for (int i = 0; cert_paths[i] != NULL; i++) {
         if (stat(cert_paths[i], &st) == 0) {
             if (unveil(cert_paths[i], "r") == -1) {
-                fprintf(stderr, "*** [WARNING] unveil failed for %s: %s\n",
+                fprintf(stderr, "***  [WARNING] unveil failed for %s: %s\n",
                         cert_paths[i], strerror(errno));
             } else {
                 fprintf(stderr, "   [UNVEIL] Allowed read access: %s\n", cert_paths[i]);
@@ -201,13 +201,13 @@ static int setup_unveil(void) {
     }
     
     if (unveiled_certs == 0) {
-        fprintf(stderr, "*** [WARNING] No SSL certificate paths could be unveiled\n");
-        fprintf(stderr, "*** [WARNING] TLS verification may fail\n");
+        fprintf(stderr, "***  [WARNING] No SSL certificate paths could be unveiled\n");
+        fprintf(stderr, "***  [WARNING] TLS verification may fail\n");
     }
     
     /* Terminal device for password input */
     if (unveil("/dev/tty", "rw") == -1) {
-        fprintf(stderr, "*** [WARNING] unveil failed for /dev/tty: %s\n", 
+        fprintf(stderr, "***  [WARNING] unveil failed for /dev/tty: %s\n", 
                 strerror(errno));
     } else {
         fprintf(stderr, "   [UNVEIL] Allowed rw access: /dev/tty\n");
@@ -328,7 +328,7 @@ static char *get_secure_password(size_t *len_out) {
     }
 
     if (tcsetattr(STDIN_FILENO, TCSANOW, &old_term) == -1) {
-        fprintf(stderr, "*** [WARNING] Failed to restore terminal settings: %s\n", strerror(errno));
+        fprintf(stderr, "***  [WARNING] Failed to restore terminal settings: %s\n", strerror(errno));
         goto fail;
     }
 
@@ -390,7 +390,7 @@ static void schedule_reconnect(void) {
 
     if (reconnect_attempts_count > MAX_RECONNECT_ATTEMPTS) {
         fprintf(stderr, "\n" ANSI_BRIGHT_RED
-                "*** [FATAL] Maximum reconnection attempts (%d) exceeded. Giving up."
+                "***  [FATAL] Maximum reconnection attempts (%d) exceeded. Giving up."
                 ANSI_RESET "\n", MAX_RECONNECT_ATTEMPTS);
         reconnect_pending = 0;
         cleanup_and_exit_internal(1);
@@ -455,7 +455,7 @@ static int dial(const char *host, const char *port) {
         }
 
         if (SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) == 0) {
-            fprintf(stderr, "*** [WARNING] Failed to set minimum TLS version to 1.2\n");
+            fprintf(stderr, "***  [WARNING] Failed to set minimum TLS version to 1.2\n");
         }
 
         if (SSL_CTX_set_cipher_list(ctx,
@@ -463,7 +463,7 @@ static int dial(const char *host, const char *port) {
                 "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:"
                 "DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:"
                 "!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4:!SEED") == 0) {
-            fprintf(stderr, "*** [WARNING] Failed to set cipher list\n");
+            fprintf(stderr, "***  [WARNING] Failed to set cipher list\n");
         }
 
         SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
@@ -521,7 +521,7 @@ static int dial(const char *host, const char *port) {
     }
 
     if (!SSL_set_tlsext_host_name(ssl, host)) {
-        fprintf(stderr, "*** [WARNING] Failed to set SNI hostname\n");
+        fprintf(stderr, "***  [WARNING] Failed to set SNI hostname\n");
     }
 
     /* Hostname Verification Setup */
@@ -548,7 +548,7 @@ static int dial(const char *host, const char *port) {
 
     struct timeval timeout_tv = {CONNECTION_TIMEOUT_SEC, 0};
     if (bufferevent_set_timeouts(bev, &timeout_tv, &timeout_tv) != 0) {
-        fprintf(stderr, "*** [WARNING] Failed to set connection timeout\n");
+        fprintf(stderr, "***  [WARNING] Failed to set connection timeout\n");
     }
 
     bufferevent_setcb(bev, read_cb, NULL, event_cb, NULL);
@@ -585,7 +585,7 @@ static void write_raw_line(const char *s) {
     size_t len = strlen(s);
 
     if (len >= IRC_MAX_MSG_LEN) {
-        fprintf(stderr, "*** [WARNING] Message too long (%zu bytes), truncating to %d\n",
+        fprintf(stderr, "***  [WARNING] Message too long (%zu bytes), truncating to %d\n",
                 len, IRC_MAX_MSG_LEN - 2);
     }
 
@@ -596,7 +596,7 @@ static void write_raw_line(const char *s) {
     }
 
     if (written >= (int)sizeof(buf)) {
-        fprintf(stderr, "*** [WARNING] Buffer truncation in write_raw_line\n");
+        fprintf(stderr, "***  [WARNING] Buffer truncation in write_raw_line\n");
         written = sizeof(buf) - 1;
     }
 
@@ -614,7 +614,7 @@ static void sendln(const char *s) {
     /* Rate Limiting */
     time_t now = time(NULL);
     if (now == (time_t)-1) {
-        fprintf(stderr, "*** [WARNING] time() failed: %s\n", strerror(errno));
+        fprintf(stderr, "***  [WARNING] time() failed: %s\n", strerror(errno));
     } else {
         if (now != last_send_time) {
             last_send_time = now;
@@ -674,14 +674,14 @@ static void print_ts(const char *prefix, const char *msg) {
         struct tm *tm_info = localtime(&now);
         if (tm_info) {
             if (strftime(timebuf, sizeof(timebuf), "%H%M%S", tm_info) == 0) {
-                fprintf(stderr, "*** [WARNING] strftime failed, using fallback timestamp\n");
+                fprintf(stderr, "***  [WARNING] strftime failed, using fallback timestamp\n");
                 snprintf(timebuf, sizeof(timebuf), "XXXXXX");
             }
         } else {
-            fprintf(stderr, "*** [WARNING] localtime failed: %s\n", strerror(errno));
+            fprintf(stderr, "***  [WARNING] localtime failed: %s\n", strerror(errno));
         }
     } else {
-        fprintf(stderr, "*** [WARNING] time() failed: %s\n", strerror(errno));
+        fprintf(stderr, "***  [WARNING] time() failed: %s\n", strerror(errno));
     }
 
     printf(ANSI_LIGHT_BLUE "[%s]" ANSI_RESET " %s", timebuf, prefix);
@@ -797,7 +797,7 @@ static void handle_server_msg(char *line) {
         char pong[512];
         int written = snprintf(pong, sizeof(pong), "PONG %s", line + 5);
         if (written < 0 || written >= (int)sizeof(pong)) {
-            fprintf(stderr, "*** [WARNING] PONG formatting issue\n");
+            fprintf(stderr, "***  [WARNING] PONG formatting issue\n");
         }
         write_raw_line(pong);
         return;
@@ -878,7 +878,7 @@ static void handle_server_msg(char *line) {
 
             int written = snprintf(prefix_buf, sizeof(prefix_buf), "[%.64s] * %.64s ", target, nickname);
             if (written < 0 || written >= (int)sizeof(prefix_buf)) {
-                fprintf(stderr, "*** [WARNING] Prefix buffer formatting issue in ACTION handler\n");
+                fprintf(stderr, "***  [WARNING] Prefix buffer formatting issue in ACTION handler\n");
                 snprintf(prefix_buf, sizeof(prefix_buf), "[UNKNOWN] * UNKNOWN ");
             }
 
@@ -887,7 +887,7 @@ static void handle_server_msg(char *line) {
                     ANSI_BOLD ANSI_BRIGHT_YELLOW
                     "[PRIVATE MESSAGE] " ANSI_RESET "<%.64s>: ", nickname);
             if (written < 0 || written >= (int)sizeof(prefix_buf)) {
-                fprintf(stderr, "*** [WARNING] Prefix buffer formatting issue in PM handler\n");
+                fprintf(stderr, "***  [WARNING] Prefix buffer formatting issue in PM handler\n");
                 snprintf(prefix_buf, sizeof(prefix_buf), "[PM] <UNKNOWN>: ");
             }
         } else {
@@ -896,7 +896,7 @@ static void handle_server_msg(char *line) {
 
             int written = snprintf(prefix_buf, sizeof(prefix_buf), "[%.64s] <%.64s>: ", target, nickname);
             if (written < 0 || written >= (int)sizeof(prefix_buf)) {
-                fprintf(stderr, "*** [WARNING] Prefix buffer formatting issue in message handler\n");
+                fprintf(stderr, "***  [WARNING] Prefix buffer formatting issue in message handler\n");
                 snprintf(prefix_buf, sizeof(prefix_buf), "[UNKNOWN] <UNKNOWN>: ");
             }
         }
@@ -978,7 +978,7 @@ static void handle_server_msg(char *line) {
         }
         /* Filter noise */
         else if (strcmp(command, "MODE") == 0 || strcmp(command, "JOIN") == 0 ||
-                 strcmp(command, "PART") == 0 || strcmp(command, "QUIT") == 0) {
+                 strcmp(command, "PART") == 0 || strcmp(command, "QUIT") == 0 || strcmp(command, "NICK") == 0) {
             free(tmp);
             return;
         }
@@ -1050,7 +1050,7 @@ static void handle_user_input(char *line) {
                         "[PRIVATE MESSAGE to %.64s] " ANSI_RESET "<%s%s%s>: ",
                         target, ANSI_BRIGHT_RED, nick, ANSI_RESET);
                 if (written < 0 || written >= (int)sizeof(echo_prefix)) {
-                    fprintf(stderr, "*** ⚑ [WARNING] Echo prefix formatting issue\n");
+                    fprintf(stderr, "***  [WARNING] Echo prefix formatting issue\n");
                     snprintf(echo_prefix, sizeof(echo_prefix), "[PM] <%s>: ", nick);
                 }
                 print_ts(echo_prefix, msg);
@@ -1073,7 +1073,7 @@ static void handle_user_input(char *line) {
             written = snprintf(echo_prefix, sizeof(echo_prefix), "[%.64s] * %s%s%s ",
                     CHANNEL, ANSI_BRIGHT_YELLOW, nick, ANSI_RESET);
             if (written < 0 || written >= (int)sizeof(echo_prefix)) {
-                fprintf(stderr, "*** ⚑ [WARNING] Echo prefix formatting issue\n");
+                fprintf(stderr, "***  [WARNING] Echo prefix formatting issue\n");
                 snprintf(echo_prefix, sizeof(echo_prefix), "[%s] * %s ", CHANNEL, nick);
             }
             print_ts(echo_prefix, msg);
@@ -1095,7 +1095,7 @@ static void handle_user_input(char *line) {
         written = snprintf(echo_prefix, sizeof(echo_prefix), "[%.64s] <%s%s%s>: ",
                 CHANNEL, ANSI_BRIGHT_YELLOW, nick, ANSI_RESET);
         if (written < 0 || written >= (int)sizeof(echo_prefix)) {
-            fprintf(stderr, "*** ⚑ [WARNING] Echo prefix formatting issue\n");
+            fprintf(stderr, "***  [WARNING] Echo prefix formatting issue\n");
             snprintf(echo_prefix, sizeof(echo_prefix), "[%s] <%s>: ", CHANNEL, nick);
         }
         print_ts(echo_prefix, line);
@@ -1189,10 +1189,10 @@ static void event_cb(struct bufferevent *bev_arg, short events, void *ctx) {
         struct timeval tv = {PING_INTERVAL_SEC, 0};
         ping_timer = event_new(base, -1, EV_PERSIST | EV_TIMEOUT, ping_cb, NULL);
         if (!ping_timer) {
-            fprintf(stderr, "*** ⚑ [WARNING] Could not create ping timer\n");
+            fprintf(stderr, "***  [WARNING] Could not create ping timer\n");
         } else {
             if (event_add(ping_timer, &tv) != 0) {
-                fprintf(stderr, "*** ⚑ [WARNING] Failed to add ping timer to event loop\n");
+                fprintf(stderr, "***  [WARNING] Failed to add ping timer to event loop\n");
                 event_free(ping_timer);
                 ping_timer = NULL;
             }
@@ -1261,7 +1261,7 @@ int main(int argc, char **argv) {
     /* OpenSSL Initialization */
     if (!OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS |
                           OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL)) {
-        fprintf(stderr, "*** ⚑ [FATAL] OpenSSL initialization failed\n");
+        fprintf(stderr, "***  [FATAL] OpenSSL initialization failed\n");
         return 1;
     }
 
@@ -1339,7 +1339,7 @@ int main(int argc, char **argv) {
     /* Event Base Setup */
     base = event_base_new();
     if (!base) {
-        fprintf(stderr, "*** ⚑ [FATAL] Could not initialize libevent\n");
+        fprintf(stderr, "***  [FATAL] Could not initialize libevent\n");
         if (password) {
             OPENSSL_cleanse(password, password_len);
             free(password);
@@ -1349,13 +1349,13 @@ int main(int argc, char **argv) {
 
     /* STDIN Setup */
     if (evutil_make_socket_nonblocking(STDIN_FILENO) < 0) {
-        fprintf(stderr, "*** ⚑ [WARNING] Failed to make STDIN non-blocking: %s\n",
+        fprintf(stderr, "***  [WARNING] Failed to make STDIN non-blocking: %s\n",
                 strerror(errno));
     }
 
     stdin_bev = bufferevent_socket_new(base, STDIN_FILENO, BEV_OPT_DEFER_CALLBACKS);
     if (!stdin_bev) {
-        fprintf(stderr, "*** ⚑ [FATAL] Failed to set up stdin buffer event\n");
+        fprintf(stderr, "***  [FATAL] Failed to set up stdin buffer event\n");
         event_base_free(base);
         if (password) {
             OPENSSL_cleanse(password, password_len);
@@ -1366,7 +1366,7 @@ int main(int argc, char **argv) {
 
     bufferevent_setcb(stdin_bev, stdin_read_cb, NULL, NULL, NULL);
     if (bufferevent_enable(stdin_bev, EV_READ) != 0) {
-        fprintf(stderr, "*** ⚑ [FATAL] Failed to enable stdin reading\n");
+        fprintf(stderr, "***  [FATAL] Failed to enable stdin reading\n");
         bufferevent_free(stdin_bev);
         event_base_free(base);
         if (password) {
@@ -1403,7 +1403,7 @@ int main(int argc, char **argv) {
 
     /* Stage 1 unveil() - before pledge() */
     if (setup_unveil() == -1) {
-        fprintf(stderr, "*** ⚑ [WARNING] unveil() setup failed, continuing anyway\n");
+        fprintf(stderr, "***  [WARNING] unveil() setup failed, continuing anyway\n");
     } else {
         printf(ANSI_BOLD ANSI_BRIGHT_GREEN "   unveil() Filesystem Restrictions Applied\n" ANSI_RESET);
     }
@@ -1429,7 +1429,7 @@ int main(int argc, char **argv) {
 
     /* Initial Connection */
     if (dial(server_host, server_port) < 0) {
-        fprintf(stderr, "*** [FATAL] Initial connection setup failed\n");
+        fprintf(stderr, "***  [FATAL] Initial connection setup failed\n");
     }
 
     printf(ANSI_BOLD "Connected as: " ANSI_BRIGHT_YELLOW "%s" ANSI_RESET "\n", nick);
@@ -1438,7 +1438,7 @@ int main(int argc, char **argv) {
     printf(ANSI_BOLD "    ▘      ▘    \n" ANSI_RESET);
     printf("  " ANSI_BOLD "▀▌▌▛▘▛▘  ▌▛▘▛▘\n");
     printf("  " ANSI_BOLD "▙▖▌▌ ▙▖  ▌▌ ▙▖\n");
-    printf("Secure by Default\n");
+    printf("Hardened by Design \n");
     printf("\n");
     printf(ANSI_BOLD ANSI_BRIGHT_YELLOW
            "═══════════════════════════════════════════════════════════\n"
@@ -1450,11 +1450,11 @@ int main(int argc, char **argv) {
 
     if (loop_result < 0) {
         fprintf(stderr, ANSI_BRIGHT_RED
-                "*** [FATAL] Event loop failed with error\n"
+                "***  [FATAL] Event loop failed with error\n"
                 ANSI_RESET);
         cleanup_and_exit_internal(1);
     } else if (loop_result == 1) {
-        fprintf(stderr, "*** [WARNING] Event loop exited: No events registered\n");
+        fprintf(stderr, "***  [WARNING] Event loop exited: No events registered\n");
         cleanup_and_exit_internal(1);
     } else {
         fprintf(stderr, "***  [EVENT LOOP] Exited cleanly\n");
